@@ -69,11 +69,16 @@ function insertScore(list, entry) {
   return { list: next, rank: index < 10 ? index + 1 : null };
 }
 
-function recordScore(mode, category, score, date = todayString()) {
+function scoreLabel(entry) {
+  return formatScore(entry.score, entry.total ?? 10);   // total이 없으면 문항 수 규정을 바꾸기 전의 10문항 판
+}
+
+function recordScore(mode, category, score, date = todayString(),
+  total = QUESTIONS.filter(q => q.category === category).length) {
   const board = loadLeaderboard();
   const key = `${mode}|${category}`;
   const current = Array.isArray(board[key]) ? board[key] : [];
-  const { list, rank } = insertScore(current, { date, score });
+  const { list, rank } = insertScore(current, { date, score, total });
   board[key] = list;
   try {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(board));
@@ -109,7 +114,7 @@ function renderLeaderboard() {
       }
       list.forEach((entry, i) => {
         const row = table.insertRow();
-        for (const value of [`${i + 1}`, entry.date, formatScore(entry.score, 10)]) {
+        for (const value of [`${i + 1}`, entry.date, scoreLabel(entry)]) {
           row.insertCell().textContent = value;
         }
       });
@@ -117,6 +122,27 @@ function renderLeaderboard() {
     }
   }
   showScreen("leaderboard");
+}
+
+function validateQuestions(questions) {
+  const errors = [];
+  const counts = CATEGORIES.map(c => questions.filter(q => q.category === c).length);
+  if (counts.some(n => n === 0) || new Set(counts).size !== 1) {
+    errors.push(`카테고리마다 문항 수가 같지 않음: ${CATEGORIES.map((c, i) => `${c} ${counts[i]}`).join(", ")}`);
+  }
+  for (const q of questions) {
+    if (!CATEGORIES.includes(q.category)) errors.push(`${q.id}: 카테고리 ${q.category}`);
+    if (!Array.isArray(q.choices) || q.choices.length !== 4 || new Set(q.choices).size !== 4) {
+      errors.push(`${q.id}: 보기 4개가 서로 다르지 않음`);
+    } else if (q.choices.filter(c => c === q.answer).length !== 1) {
+      errors.push(`${q.id}: 정답이 보기에 정확히 1번 나오지 않음`);
+    }
+    if (!q.explanation?.trim()) errors.push(`${q.id}: 해설이 비어 있음`);
+    if (!Array.isArray(q.sources) || q.sources.length === 0 || !q.sources.every(s => /https?:\/\//.test(s))) {
+      errors.push(`${q.id}: sources가 URL이 있는 출처 1개 이상의 배열이 아님`);
+    }
+  }
+  return errors;
 }
 
 function startCategory(category) {
@@ -224,7 +250,13 @@ function revealAnswer(selected) {
   if (selected === null) result = "시간 초과";
   document.getElementById("feedback-result").textContent = result;
   document.getElementById("feedback-explanation").textContent = q.explanation;
-  document.getElementById("feedback-source").textContent = `출처: ${q.source}`;
+  const sourceList = document.getElementById("feedback-source");
+  sourceList.replaceChildren();
+  q.sources.forEach((source, i) => {
+    const line = document.createElement("p");
+    line.textContent = q.sources.length > 1 ? `출처 ${i + 1}: ${source}` : `출처: ${source}`;
+    sourceList.appendChild(line);
+  });
   document.getElementById("current-score").textContent = `점수 ${formatScore(state.score, state.questions.length)}`;
   const isLast = state.index === state.questions.length - 1;
   document.getElementById("next-button").textContent = isLast ? "결과 보기" : "다음";
@@ -250,7 +282,7 @@ function showResult() {
   const rank = document.getElementById("result-rank");
   rank.hidden = !(state.firstScore === null && MODES[state.mode].leaderboard);
   if (!rank.hidden) {
-    const saved = recordScore(state.mode, state.category, state.score);
+    const saved = recordScore(state.mode, state.category, state.score, todayString(), state.questions.length);
     if (!saved.saved) rank.textContent = "순위표를 저장할 수 없음";
     else if (saved.rank === null) rank.textContent = "상위 10위 밖";
     else rank.textContent = `이번 점수는 ${saved.rank}위`;
@@ -338,6 +370,21 @@ function runSelfTests() {
     const r = insertScore(full, { date: "2026-10-09", score: 3 });
     return r.rank === null && r.list.length === 10;
   });
+  check("문항 검사: 카테고리마다 문항 수가 다르면 잡아냄", () => {
+    const q = (id, category) => ({ id, category, question: "?", choices: ["가", "나", "다", "라"],
+      answer: "가", explanation: "해설", sources: ["자료, https://example.com, 2026-10-16"] });
+    const even = CATEGORIES.map((c, i) => q(`q${i}`, c));
+    return validateQuestions(even).length === 0 && validateQuestions([...even, q("q9", "과학")]).length > 0;
+  });
+  check("문항 검사: questions.js", () => {
+    const errors = validateQuestions(QUESTIONS);
+    errors.forEach(e => console.log(`  ${e}`));
+    return errors.length === 0;
+  });
+  check("순위표: 기록의 문항 수로 점수 표기", () =>
+    scoreLabel({ score: 9, total: 12 }) === "9/12" && scoreLabel({ score: 8 }) === "8/10");
+  check("순위표: 기록에 문항 수를 저장", () =>
+    insertScore([], { date: "2026-10-16", score: 9, total: 12 }).list[0].total === 12);
   // 태스크마다 여기에 check(...)를 더함
   const failed = results.filter(ok => !ok).length;
   console.log(failed ? `점검 실패: ${failed}개` : `점검 통과: ${results.length}개`);
@@ -345,6 +392,8 @@ function runSelfTests() {
 }
 
 if (typeof document === "undefined") {
+  const fs = require("fs"), path = require("path"), vm = require("vm");
+  vm.runInThisContext(fs.readFileSync(path.join(__dirname, "questions.js"), "utf8"));   // 브라우저처럼 QUESTIONS를 전역에 둠
   process.exitCode = runSelfTests() ? 0 : 1;   // 클로드: node script.js
 } else {
   init();

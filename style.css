@@ -74,6 +74,10 @@ button:disabled {
   word-break: break-all;
 }
 
+.source p {
+  margin: 4px 0;
+}
+
 #leaderboard-list table {
   width: 100%;
   border-collapse: collapse;

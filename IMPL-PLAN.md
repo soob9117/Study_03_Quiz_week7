@@ -16,21 +16,22 @@
 | 1단계 | 파일 4개, 40문항, 시작 화면, 문제 화면, 결과 화면, 연습 모드 채점, 섞기, 점검 함수 | Node 문항 검사 통과, `node script.js` 점검 통과, 사용자의 브라우저 확인 7개 항목(`index.html?test` 콘솔 포함)과 40문항 확인 | 1~4 |
 | 2단계 | 모드 선택 화면, 스피드 모드, 힌트 모드, 틀린 문제 다시 풀기 | `node script.js` 점검 통과, 사용자의 브라우저 확인 9개 항목(`index.html?test` 콘솔 포함) | 5~9 |
 | 3단계 | localStorage 저장, 결과 화면의 순위, 순위표 화면 | `node script.js` 점검 통과, 사용자의 브라우저 확인 9개 항목(`index.html?test` 콘솔 포함, 크롬, 사파리) | 10~12 |
+| 변경 | 문항 수 규정을 "카테고리마다 같은 수"로 바꿈, 문항 검사를 script.js로 옮김, 순위표 기록에 문항 수 저장 | `node script.js` 점검 통과 | 13 |
 
 ## 전체 제약
 
 - 앱 파일은 index.html, style.css, script.js, questions.js 4개만 둠(PRD 1절). 점검 코드는 script.js 안에 둠. Node 문항 검사 명령은 파일로 남기지 않음(PRD 6.3항)
 - index.html을 file://로 열어 동작해야 함. questions.js는 `<script>`로 읽고 fetch를 쓰지 않음(PRD 3절)
 - 테스트 라이브러리를 쓰지 않음(PRD 9절). 검증은 3가지로 함(PRD 8절)
-  - 클로드: `node script.js` 한 줄로 점검 함수를 실행함. 기대 출력의 끝 줄은 `점검 통과: N개`. 문항을 고친 태스크는 Task 1 Step 5의 Node 문항 검사도 실행함
+  - 클로드: `node script.js` 한 줄로 점검 함수를 실행함. 기대 출력의 끝 줄은 `점검 통과: N개`. 문항 검사는 점검 함수 안의 `validateQuestions()`가 함께 함(Task 13부터). Task 1 Step 5의 Node 명령은 1단계 때 쓴 기록임
   - 사용자: `index.html?test`로 열어 브라우저 콘솔에서 같은 점검 결과를 봄
   - 사용자: 단계 끝 태스크(Task 4, 9, 12)의 브라우저 확인 항목. 콘솔 명령이 필요한 항목은 명령을 적어 둠
-- 점검 함수는 화면 없이 확인할 수 있는 로직(섞기, 채점, 점수 표기, 힌트 보기 고르기, 순위표 정렬, 저장값 해석, 날짜)만 검사함. 화면, 타이머, 저장은 사용자의 브라우저 확인으로 봄
+- 점검 함수는 화면 없이 확인할 수 있는 로직(섞기, 채점, 점수 표기, 힌트 보기 고르기, 순위표 정렬, 저장값 해석, 날짜)과 questions.js의 문항 형식만 검사함. 화면, 타이머, 저장은 사용자의 브라우저 확인으로 봄
 - 점검을 더하는 태스크는 점검을 먼저 쓰고 `node script.js`가 FAIL을 내는지 본 뒤 구현함
 - 태스크마다 마지막에 그 태스크에서 바꾼 파일을 커밋함. 메시지는 `feat: Task N <태스크 제목>`(git 저장소는 2026-10-09에 만듦, 아직 커밋 없음)
 - 화면 문구는 PRD 4.2항의 문구를 그대로 씀: "순위표에 기록되지 않음", "상위 10위 밖", "순위표를 저장할 수 없음", [처음으로], [다음], [결과 보기], [힌트], [틀린 문제 다시 풀기], [순위표]
 - 문항, 보기, 해설을 화면에 넣을 때 `textContent`를 씀(문항에 `<`, `&`가 들어가도 그대로 보이게 함)
-- 점수 표기는 `점수/문항 수`(예: `7.5/10`, 다시 푼 판은 `3/4`)
+- 점수 표기는 `점수/문항 수`(예: 한 판이 10문항이면 `7.5/10`, 틀린 4문항을 다시 푼 판은 `3/4`)
 
 ## 검토 초점
 
@@ -46,10 +47,10 @@ PRD가 말하지 않았으나 사용자가 겪기 쉬운 경우 5개. 각 줄의
 
 | 파일 | 맡는 일 | 만드는 태스크 |
 |---|---|---|
-| questions.js | 전역 `QUESTIONS` 배열, 40문항 | 1 |
+| questions.js | 전역 `QUESTIONS` 배열. 카테고리마다 같은 수의 문항(1단계에서 40문항) | 1 |
 | index.html | 화면별 `<section id="screen-…">`, 버튼 마크업. questions.js, script.js 순으로 읽음 | 2 |
 | style.css | 배치, 정답 보기와 고른 오답 보기의 색 | 2 |
-| script.js | `MODES`, `state`, 화면 전환, 채점, 타이머, 힌트, 다시 풀기, 순위표, 점검 함수 | 2 |
+| script.js | `MODES`, `state`, 화면 전환, 채점, 타이머, 힌트, 다시 풀기, 순위표, 문항 검사, 점검 함수 | 2, 13 |
 
 ---
 
@@ -97,6 +98,8 @@ EOF
 ```
 
 기대 출력: `문항 검사 통과: 40문항`
+
+> 2026-10-16: 위 명령은 1단계 때 쓴 기록임. 이후 문항 수 규정이 "카테고리마다 문항 수가 같음"으로, 출처가 `sources` 배열로 바뀌어 이 명령은 지금 형식과 맞지 않음. 지금은 `node script.js`가 `validateQuestions()`로 검사함(Task 13)
 
 - [x] Step 6: `questions.js`를 커밋함
 
@@ -175,7 +178,7 @@ if (typeof document === "undefined") {
   - `formatScore(score: number, total: number) -> string`: `` `${score}/${total}` ``
   - `startCategory(category: string) -> void`: 1단계에서는 `state.category`, `state.mode = "practice"`, `state.firstScore = null`을 정하고 `startRound(QUESTIONS.filter(...))`
   - `startRound(list: Array<Question>) -> void`: `state.questions = shuffle(list).map(q => ({ ...q, choices: shuffle(q.choices) }))`, `index`, `score`, `wrong`을 초기화하고 `renderQuestion()`
-  - `renderQuestion() -> void`: 진행(`3/10`), 현재 점수, 문항, 보기 4개를 그림. `state.answered = false`, `state.hintUsed = false`
+  - `renderQuestion() -> void`: 진행(한 판이 10문항이면 `3/10`), 현재 점수, 문항, 보기 4개를 그림. `state.answered = false`, `state.hintUsed = false`
   - `selectChoice(choice: string) -> void`: `state.answered`면 아무것도 하지 않음. 보기 내용을 `answer`와 비교해 `scoreFor()`로 채점하고, 틀리면 `state.wrong`에 넣음. 이어서 `revealAnswer(choice)`
   - `revealAnswer(selected: string | null) -> void`: `state.answered = true`, 보기를 모두 잠금, 정답 보기에 `correct`, 고른 오답 보기에 `wrong`, 정답 여부(시간 초과면 `selected === null`), 해설, 출처, 마지막 문항이면 [결과 보기] 아니면 [다음]
   - `nextQuestion() -> void`, `showResult() -> void`
@@ -416,6 +419,50 @@ check("순위표: 10위 밖이면 rank가 null", () => {
 
 ---
 
+## 변경: 문항 수 규정
+
+### Task 13: 카테고리마다 같은 문항 수
+
+2026-10-16 사용자와 정함. 문항을 더할 수 있게 "카테고리마다 10문항, 총 40문항"을 "카테고리마다 문항 수가 같음"으로 바꿈(PRD 1절, 6.3항, 7절, 부록 A).
+
+파일: 고치기 `script.js`, `PRD.md`, `IMPL-PLAN.md`(index.html에는 문항 수 관련 내용이 없어 고치지 않음)
+
+인터페이스
+- 소비: `QUESTIONS`, `CATEGORIES`, `insertScore()`, `formatScore()`
+- 내놓는 것
+  - `validateQuestions(questions: Array<Question>) -> Array<string>`: PRD 6.3항의 검사 항목을 보고 어긋난 내용을 문자열로 돌려줌. 빈 배열이면 통과. 카테고리 수는 `CATEGORIES`로 셈
+  - `scoreLabel(entry: {score, total?}) -> string`: `formatScore(score, total)`. `total`이 없으면 10(문항 수 규정을 바꾸기 전의 기록)
+  - `recordScore(mode, category, score, date = todayString(), total = 그 카테고리의 문항 수)`: 기록을 `{ date, score, total }`로 저장함. `showResult()`는 `total`로 `state.questions.length`를 넘김
+  - `renderLeaderboard()`는 점수 칸에 `scoreLabel(entry)`를 씀
+  - Node에서 `node script.js`를 실행하면 questions.js를 먼저 읽어 `QUESTIONS`를 전역에 둠(브라우저와 같게)
+
+- [x] Step 1: `runSelfTests()`에 점검 4개를 더함
+
+```js
+check("문항 검사: 카테고리마다 문항 수가 다르면 잡아냄", () => {
+  const q = (id, category) => ({ id, category, question: "?", choices: ["가", "나", "다", "라"],
+    answer: "가", explanation: "해설", sources: ["자료, https://example.com, 2026-10-16"] });
+  const even = CATEGORIES.map((c, i) => q(`q${i}`, c));
+  return validateQuestions(even).length === 0 && validateQuestions([...even, q("q9", "과학")]).length > 0;
+});
+check("문항 검사: questions.js", () => {
+  const errors = validateQuestions(QUESTIONS);
+  errors.forEach(e => console.log(`  ${e}`));
+  return errors.length === 0;
+});
+check("순위표: 기록의 문항 수로 점수 표기", () =>
+  scoreLabel({ score: 9, total: 12 }) === "9/12" && scoreLabel({ score: 8 }) === "8/10");
+check("순위표: 기록에 문항 수를 저장", () =>
+  insertScore([], { date: "2026-10-16", score: 9, total: 12 }).list[0].total === 12);
+```
+
+- [x] Step 2: `node script.js`. 실제 출력: 새 점검 3개가 FAIL, 끝 줄 `점검 실패: 3개`(마지막 점검은 `insertScore()`가 기록을 그대로 넣어 이미 통과함)
+- [x] Step 3: 위 내용을 씀. PRD.md와 이 계획의 문항 수 규정, 점수 예시의 전제를 고침. 1단계 실행 기록(Task 1~4, PRD 8.1항 등)의 "40문항"은 그때의 기록이라 그대로 둠
+- [x] Step 4: `node script.js`. 기대 출력: 끝 줄 `점검 통과: 19개`
+- [x] Step 5: `script.js`, `PRD.md`, `IMPL-PLAN.md`를 커밋함
+
+---
+
 ## PRD 항목과 태스크 대응표
 
 PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. "확인"은 사용자 확인 태스크의 항목 번호임.
@@ -427,7 +474,7 @@ PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. 
 | PRD 3절 | file://로 열어 동작, questions.js를 `<script>`로 읽음 | 2 | 1-1 |
 | PRD 3절 | 화면마다 `<section>`, 보이기와 숨기기 | 2 | 1-1 |
 | PRD 3절 | 상태 객체 1개, 모드 규칙표 1개 | 2, 5 | 1-0, 2-0 |
-| PRD 4.1항 | 구현 1단계 흐름: 시작, 문제 ×10, 결과, [처음으로] | 3 | 1-1 |
+| PRD 4.1항 | 구현 1단계 흐름: 시작, 문제 ×N, 결과, [처음으로] | 3 | 1-1 |
 | PRD 4.1항 | 구현 2단계 흐름: 모드 선택, 다시 풀기 | 5, 8 | 2-1, 2-7 |
 | PRD 4.1항 | 구현 3단계 흐름: 시작 화면의 [순위표] | 11 | 3-1 |
 | PRD 4.2항 | 시작 화면: 카테고리 버튼 4개, 문구, [순위표] | 2, 5, 11 | 1-4, 2-1, 3-1 |
@@ -439,20 +486,20 @@ PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. 
 | PRD 4.2항 | 결과 화면(스피드, 힌트): 순위, "상위 10위 밖" | 10 | 3-1, 3-3 |
 | PRD 4.2항 | 순위표 화면: 표 8개, 상위 10개 | 11 | 3-1, 3-3 |
 | PRD 5.1항 | 모드 규칙표 3줄 | 2, 5 | 1-0, 2-0 |
-| PRD 5.2항 | 맞히면 1점, 틀리면 0점, 힌트를 쓰고 맞히면 0.5점, 10점 만점 표기 | 3, 7 | 1-0, 1-2, 2-0, 2-6 |
+| PRD 5.2항 | 맞히면 1점, 틀리면 0점, 힌트를 쓰고 맞히면 0.5점, 한 판의 문항 수를 만점으로 표기 | 3, 7, 13 | 1-0, 1-2, 2-0, 2-6 |
 | PRD 5.2항 | 문항 순서와 보기 순서 섞기, 보기 내용으로 채점 | 3 | 1-0, 1-5 |
 | PRD 5.3항 | 스피드 모드: 15초, 시간 초과는 오답, 해설 중 정지, [다음]에서 다시 셈 | 6 | 2-2, 2-3, 2-4 |
 | PRD 5.4항 | 힌트 모드: 오답 보기 2개를 막음, 1번만 씀 | 7 | 2-0, 2-5, 2-6 |
 | PRD 5.5항 | 틀린 문제 다시 풀기: 연습 모드만, 틀린 문항만, 처음 판 점수 유지, 반복 | 8 | 2-7, 2-8 |
-| PRD 6.1항 | 문항 데이터 형식 | 1 | Task 1 Step 5 |
+| PRD 6.1항 | 문항 데이터 형식 | 1, 13 | Task 1 Step 5, Task 13 Step 4 |
 | PRD 6.2항 | 정답 1개, 출처 명시, 최상급 문항의 기준과 시점 | 1 | 1-7 |
 | PRD 6.3항 | 클로드의 웹 대조, 사용자 최종 확인 | 1 | 1-7 |
-| PRD 6.3항 | Node 문항 검사 | 1, 3 | Task 1 Step 5 |
-| PRD 7절 | 키 `quiz-leaderboard` 1개, 값의 형태, 표 8개 | 10 | 3-1 |
+| PRD 6.3항 | 문항 검사(카테고리마다 같은 문항 수, `validateQuestions()`) | 1, 3, 13 | Task 1 Step 5, Task 13 Step 4 |
+| PRD 7절 | 키 `quiz-leaderboard` 1개, 값의 형태(`total` 포함), 표 8개 | 10, 13 | 3-1 |
 | PRD 7절 | 점수 내림차순, 상위 10개, 동점이면 먼저 기록한 것이 위 | 10 | 3-0, 3-3, 3-4 |
 | PRD 7절 | 연습 모드 점수는 저장하지 않음 | 10 | 3-2 |
 | PRD 7절 | 저장이 막히면 "순위표를 저장할 수 없음", 게임 계속 | 10 | 3-6 |
-| PRD 8절 | script.js의 점검 코드(`node script.js`, `index.html?test`) | 2, 3, 5, 7, 10 | 1-0, 2-0, 3-0 |
+| PRD 8절 | script.js의 점검 코드(`node script.js`, `index.html?test`) | 2, 3, 5, 7, 10, 13 | 1-0, 2-0, 3-0 |
 | PRD 8.1항 | 구현 1단계 완료 확인 항목 | 4 | 1-0~1-7 |
 | PRD 8.2항 | 구현 2단계 완료 확인 항목 | 9 | 2-0~2-8 |
 | PRD 8.3항 | 구현 3단계 완료 확인 항목 | 12 | 3-0~3-8 |
