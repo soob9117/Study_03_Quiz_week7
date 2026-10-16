@@ -17,6 +17,7 @@
 | 2단계 | 모드 선택 화면, 스피드 모드, 힌트 모드, 틀린 문제 다시 풀기 | `node script.js` 점검 통과, 사용자의 브라우저 확인 9개 항목(`index.html?test` 콘솔 포함) | 5~9 |
 | 3단계 | localStorage 저장, 결과 화면의 순위, 순위표 화면 | `node script.js` 점검 통과, 사용자의 브라우저 확인 9개 항목(`index.html?test` 콘솔 포함, 크롬, 사파리) | 10~12 |
 | 변경 | 문항 수 규정을 "카테고리마다 같은 수"로 바꿈, 문항 검사를 script.js로 옮김, 순위표 기록에 문항 수 저장 | `node script.js` 점검 통과 | 13 |
+| 변경 | 한 판은 카테고리 문항 중 무작위 10문항, 문항 수 규정을 "카테고리마다 10문항 이상"으로 바꿈 | `node script.js` 점검 통과 | 14 |
 
 ## 전체 제약
 
@@ -47,7 +48,7 @@ PRD가 말하지 않았으나 사용자가 겪기 쉬운 경우 5개. 각 줄의
 
 | 파일 | 맡는 일 | 만드는 태스크 |
 |---|---|---|
-| questions.js | 전역 `QUESTIONS` 배열. 카테고리마다 같은 수의 문항(1단계에서 40문항) | 1 |
+| questions.js | 전역 `QUESTIONS` 배열. 카테고리마다 10문항 이상(1단계에서 40문항) | 1 |
 | index.html | 화면별 `<section id="screen-…">`, 버튼 마크업. questions.js, script.js 순으로 읽음 | 2 |
 | style.css | 배치, 정답 보기와 고른 오답 보기의 색 | 2 |
 | script.js | `MODES`, `state`, 화면 전환, 채점, 타이머, 힌트, 다시 풀기, 순위표, 문항 검사, 점검 함수 | 2, 13 |
@@ -99,7 +100,7 @@ EOF
 
 기대 출력: `문항 검사 통과: 40문항`
 
-> 2026-10-16: 위 명령은 1단계 때 쓴 기록임. 이후 문항 수 규정이 "카테고리마다 문항 수가 같음"으로, 출처가 `sources` 배열로 바뀌어 이 명령은 지금 형식과 맞지 않음. 지금은 `node script.js`가 `validateQuestions()`로 검사함(Task 13)
+> 2026-10-16: 위 명령은 1단계 때 쓴 기록임. 이후 문항 수 규정이 "카테고리마다 문항 수가 같음"(Task 13)을 거쳐 "카테고리마다 10문항 이상"(Task 14)으로, 출처가 `sources` 배열로 바뀌어 이 명령은 지금 형식과 맞지 않음. 지금은 `node script.js`가 `validateQuestions()`로 검사함(Task 13, 14)
 
 - [x] Step 6: `questions.js`를 커밋함
 
@@ -463,6 +464,53 @@ check("순위표: 기록에 문항 수를 저장", () =>
 
 ---
 
+### Task 14: 한 판은 무작위 10문항
+
+2026-10-16 사용자와 정함. 카테고리에 10문항보다 많이 있어도 한 판은 그중 무작위 10문항으로 함. "카테고리마다 문항 수가 같음"(Task 13)을 "카테고리마다 10문항 이상"으로 바꿈(PRD 1절, 5.2항, 6.3항, 7절, 9절, 부록 A)
+
+파일: 고치기 `script.js`, `PRD.md`, `IMPL-PLAN.md`(index.html에는 판 크기 관련 내용이 없어 고치지 않음)
+
+인터페이스
+- 소비: `shuffle()`, `startRound()`, `QUESTIONS`, `CATEGORIES`
+- 내놓는 것
+  - `const ROUND_SIZE = 10`: 한 판의 문항 수. 화면에서 고르지 않음(PRD 9절)
+  - `pickRound(list: Array<Question>, size = ROUND_SIZE) -> Array<Question>`: `shuffle(list).slice(0, size)`. 원본을 바꾸지 않음
+  - `startMode()`는 `startRound(pickRound(카테고리 문항))`을 부름. 틀린 문제 다시 풀기는 뽑힌 판의 틀린 문항만 쓰므로 바꾸지 않음
+  - `validateQuestions()`: "카테고리마다 문항 수가 같음" 대신 "카테고리마다 `ROUND_SIZE`문항 이상"을 검사함
+  - `recordScore()`의 `total` 기본값을 `ROUND_SIZE`로 바꿈(콘솔에서 넣는 기록용. 게임에서는 `showResult()`가 `state.questions.length`를 넘김)
+
+- [x] Step 1: `runSelfTests()`의 점검을 바꾸고 더함. Task 13의 "문항 검사: 카테고리마다 문항 수가 다르면 잡아냄"은 규칙이 바뀌어 아래 첫 점검으로 바꿈
+
+```js
+check("문항 검사: 카테고리마다 10문항 이상이면 통과, 9문항이면 잡아냄", () => {
+  const q = (id, category) => ({ id, category, question: "?", choices: ["가", "나", "다", "라"],
+    answer: "가", explanation: "해설", sources: ["자료, https://example.com, 2026-10-16"] });
+  const full = CATEGORIES.flatMap(c => Array.from({ length: 10 }, (_, i) => q(`${c}-${i}`, c)));
+  const uneven = [...full, q("과학-10", "과학"), q("과학-11", "과학")];   // 카테고리마다 문항 수가 달라도 됨
+  const short = full.filter(x => x.id !== "한국사-0");
+  return validateQuestions(full).length === 0 && validateQuestions(uneven).length === 0 &&
+    validateQuestions(short).length > 0;
+});
+check("판 고르기: 12문항에서 서로 다른 10문항", () => {
+  const list = Array.from({ length: 12 }, (_, i) => ({ id: `q${i}` }));
+  const picked = pickRound(list);
+  return picked.length === 10 && new Set(picked).size === 10 && picked.every(p => list.includes(p)) &&
+    list.length === 12;
+});
+check("판 고르기: 10문항이면 10문항이 모두 나옴", () => {
+  const list = Array.from({ length: 10 }, (_, i) => ({ id: `q${i}` }));
+  const picked = pickRound(list);
+  return picked.length === 10 && list.every(q => picked.includes(q));
+});
+```
+
+- [x] Step 2: `node script.js`. 실제 출력: 위 점검 3개가 FAIL, 끝 줄 `점검 실패: 3개`
+- [x] Step 3: 위 내용을 씀. PRD.md와 이 계획의 판 크기, 문항 수 규정을 고침
+- [x] Step 4: `node script.js`. 기대 출력: 끝 줄 `점검 통과: 21개`
+- [x] Step 5: `script.js`, `PRD.md`, `IMPL-PLAN.md`를 커밋함
+
+---
+
 ## PRD 항목과 태스크 대응표
 
 PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. "확인"은 사용자 확인 태스크의 항목 번호임.
@@ -474,7 +522,7 @@ PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. 
 | PRD 3절 | file://로 열어 동작, questions.js를 `<script>`로 읽음 | 2 | 1-1 |
 | PRD 3절 | 화면마다 `<section>`, 보이기와 숨기기 | 2 | 1-1 |
 | PRD 3절 | 상태 객체 1개, 모드 규칙표 1개 | 2, 5 | 1-0, 2-0 |
-| PRD 4.1항 | 구현 1단계 흐름: 시작, 문제 ×N, 결과, [처음으로] | 3 | 1-1 |
+| PRD 4.1항 | 구현 1단계 흐름: 시작, 문제 ×10, 결과, [처음으로] | 3 | 1-1 |
 | PRD 4.1항 | 구현 2단계 흐름: 모드 선택, 다시 풀기 | 5, 8 | 2-1, 2-7 |
 | PRD 4.1항 | 구현 3단계 흐름: 시작 화면의 [순위표] | 11 | 3-1 |
 | PRD 4.2항 | 시작 화면: 카테고리 버튼 4개, 문구, [순위표] | 2, 5, 11 | 1-4, 2-1, 3-1 |
@@ -487,14 +535,14 @@ PRD의 항목마다 그것을 구현하거나 확인하는 태스크를 적음. 
 | PRD 4.2항 | 순위표 화면: 표 8개, 상위 10개 | 11 | 3-1, 3-3 |
 | PRD 5.1항 | 모드 규칙표 3줄 | 2, 5 | 1-0, 2-0 |
 | PRD 5.2항 | 맞히면 1점, 틀리면 0점, 힌트를 쓰고 맞히면 0.5점, 한 판의 문항 수를 만점으로 표기 | 3, 7, 13 | 1-0, 1-2, 2-0, 2-6 |
-| PRD 5.2항 | 문항 순서와 보기 순서 섞기, 보기 내용으로 채점 | 3 | 1-0, 1-5 |
+| PRD 5.2항 | 판마다 무작위 10문항 고르기, 문항 순서와 보기 순서 섞기, 보기 내용으로 채점 | 3, 14 | 1-0, 1-5, Task 14 Step 4 |
 | PRD 5.3항 | 스피드 모드: 15초, 시간 초과는 오답, 해설 중 정지, [다음]에서 다시 셈 | 6 | 2-2, 2-3, 2-4 |
 | PRD 5.4항 | 힌트 모드: 오답 보기 2개를 막음, 1번만 씀 | 7 | 2-0, 2-5, 2-6 |
 | PRD 5.5항 | 틀린 문제 다시 풀기: 연습 모드만, 틀린 문항만, 처음 판 점수 유지, 반복 | 8 | 2-7, 2-8 |
 | PRD 6.1항 | 문항 데이터 형식 | 1, 13 | Task 1 Step 5, Task 13 Step 4 |
 | PRD 6.2항 | 정답 1개, 출처 명시, 최상급 문항의 기준과 시점 | 1 | 1-7 |
 | PRD 6.3항 | 클로드의 웹 대조, 사용자 최종 확인 | 1 | 1-7 |
-| PRD 6.3항 | 문항 검사(카테고리마다 같은 문항 수, `validateQuestions()`) | 1, 3, 13 | Task 1 Step 5, Task 13 Step 4 |
+| PRD 6.3항 | 문항 검사(카테고리마다 10문항 이상, `validateQuestions()`) | 1, 3, 13, 14 | Task 1 Step 5, Task 13 Step 4, Task 14 Step 4 |
 | PRD 7절 | 키 `quiz-leaderboard` 1개, 값의 형태(`total` 포함), 표 8개 | 10, 13 | 3-1 |
 | PRD 7절 | 점수 내림차순, 상위 10개, 동점이면 먼저 기록한 것이 위 | 10 | 3-0, 3-3, 3-4 |
 | PRD 7절 | 연습 모드 점수는 저장하지 않음 | 10 | 3-2 |

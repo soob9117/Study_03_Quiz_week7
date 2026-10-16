@@ -8,6 +8,7 @@ const MODES = {
 
 const LEADERBOARD_KEY = "quiz-leaderboard";
 const CATEGORIES = ["한국사", "세계지리", "과학", "예술과 문화"];
+const ROUND_SIZE = 10;   // 한 판의 문항 수
 
 const state = {
   category: null, mode: "practice", questions: [], index: 0, score: 0,
@@ -74,7 +75,7 @@ function scoreLabel(entry) {
 }
 
 function recordScore(mode, category, score, date = todayString(),
-  total = QUESTIONS.filter(q => q.category === category).length) {
+  total = ROUND_SIZE) {
   const board = loadLeaderboard();
   const key = `${mode}|${category}`;
   const current = Array.isArray(board[key]) ? board[key] : [];
@@ -127,9 +128,9 @@ function renderLeaderboard() {
 function validateQuestions(questions) {
   const errors = [];
   const counts = CATEGORIES.map(c => questions.filter(q => q.category === c).length);
-  if (counts.some(n => n === 0) || new Set(counts).size !== 1) {
-    errors.push(`카테고리마다 문항 수가 같지 않음: ${CATEGORIES.map((c, i) => `${c} ${counts[i]}`).join(", ")}`);
-  }
+  CATEGORIES.forEach((c, i) => {
+    if (counts[i] < ROUND_SIZE) errors.push(`${c}: ${counts[i]}문항(한 판에 ${ROUND_SIZE}문항이 필요함)`);
+  });
   for (const q of questions) {
     if (!CATEGORIES.includes(q.category)) errors.push(`${q.id}: 카테고리 ${q.category}`);
     if (!Array.isArray(q.choices) || q.choices.length !== 4 || new Set(q.choices).size !== 4) {
@@ -145,6 +146,10 @@ function validateQuestions(questions) {
   return errors;
 }
 
+function pickRound(list, size = ROUND_SIZE) {
+  return shuffle(list).slice(0, size);
+}
+
 function startCategory(category) {
   state.category = category;
   document.getElementById("mode-category").textContent = category;
@@ -154,7 +159,7 @@ function startCategory(category) {
 function startMode(mode) {
   state.mode = mode;
   state.firstScore = null;
-  startRound(QUESTIONS.filter(q => q.category === state.category));
+  startRound(pickRound(QUESTIONS.filter(q => q.category === state.category)));
 }
 
 function startRound(list) {
@@ -370,11 +375,25 @@ function runSelfTests() {
     const r = insertScore(full, { date: "2026-10-09", score: 3 });
     return r.rank === null && r.list.length === 10;
   });
-  check("문항 검사: 카테고리마다 문항 수가 다르면 잡아냄", () => {
+  check("문항 검사: 카테고리마다 10문항 이상이면 통과, 9문항이면 잡아냄", () => {
     const q = (id, category) => ({ id, category, question: "?", choices: ["가", "나", "다", "라"],
       answer: "가", explanation: "해설", sources: ["자료, https://example.com, 2026-10-16"] });
-    const even = CATEGORIES.map((c, i) => q(`q${i}`, c));
-    return validateQuestions(even).length === 0 && validateQuestions([...even, q("q9", "과학")]).length > 0;
+    const full = CATEGORIES.flatMap(c => Array.from({ length: 10 }, (_, i) => q(`${c}-${i}`, c)));
+    const uneven = [...full, q("과학-10", "과학"), q("과학-11", "과학")];   // 카테고리마다 문항 수가 달라도 됨
+    const short = full.filter(x => x.id !== "한국사-0");
+    return validateQuestions(full).length === 0 && validateQuestions(uneven).length === 0 &&
+      validateQuestions(short).length > 0;
+  });
+  check("판 고르기: 12문항에서 서로 다른 10문항", () => {
+    const list = Array.from({ length: 12 }, (_, i) => ({ id: `q${i}` }));
+    const picked = pickRound(list);
+    return picked.length === 10 && new Set(picked).size === 10 && picked.every(p => list.includes(p)) &&
+      list.length === 12;
+  });
+  check("판 고르기: 10문항이면 10문항이 모두 나옴", () => {
+    const list = Array.from({ length: 10 }, (_, i) => ({ id: `q${i}` }));
+    const picked = pickRound(list);
+    return picked.length === 10 && list.every(q => picked.includes(q));
   });
   check("문항 검사: questions.js", () => {
     const errors = validateQuestions(QUESTIONS);
