@@ -224,7 +224,13 @@ function revealAnswer(selected) {
   if (selected === null) result = "시간 초과";
   document.getElementById("feedback-result").textContent = result;
   document.getElementById("feedback-explanation").textContent = q.explanation;
-  document.getElementById("feedback-source").textContent = `출처: ${q.source}`;
+  const sourceList = document.getElementById("feedback-source");
+  sourceList.replaceChildren();
+  q.sources.forEach((source, i) => {
+    const line = document.createElement("p");
+    line.textContent = q.sources.length > 1 ? `출처 ${i + 1}: ${source}` : `출처: ${source}`;
+    sourceList.appendChild(line);
+  });
   document.getElementById("current-score").textContent = `점수 ${formatScore(state.score, state.questions.length)}`;
   const isLast = state.index === state.questions.length - 1;
   document.getElementById("next-button").textContent = isLast ? "결과 보기" : "다음";
